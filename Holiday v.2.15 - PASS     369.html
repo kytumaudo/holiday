@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holiday Schedule - v.2.0</title>
+    <!-- Libraries for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Styles reverted to match the visual target image */
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --primary-color: #2f81f7;
+            --sunday-color: #f85149;
+            --hover-color: #21262d;
+            --btn-secondary-bg: #21262d;
+            --btn-secondary-border: #30363d;
+            --text-muted-color: #8b949e;
+        }
+
+        body.light-mode {
+            --bg-color: #f8f9fa;
+            --text-color: #212529; /* Main text color is black in light mode */
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --primary-color: #007bff;
+            --sunday-color: #dc3545;
+            --hover-color: #e9ecef;
+            --btn-secondary-bg: #f8f9fa;
+            --btn-secondary-border: #dee2e6;
+            --text-muted-color: #6c757d;
+        }
+
+        /* General & Reset */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+        
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .header h1 { font-size: 2.2rem; }
+        .year-nav span { font-size: 2.2rem; font-weight: bold; }
+
+        /* NEW: Platform switcher styles */
+        .platform-switcher {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Custom styles for platform switcher buttons for smoother transitions and colors */
+        .platform-switcher > .btn, 
+        .platform-switcher > .btn-secondary {
+            /* Smoother transition for background and color changes */
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* The active Office button will be red. The .btn class indicates the active state. */
+        #platform-switch-office.btn {
+            background-color: var(--sunday-color);
+            border-color: var(--sunday-color);
+        }
+        /* The Driver button uses the default blue .btn style when active. */
+
+
+        /* Buttons */
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: 1px solid var(--primary-color);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px; /* Add gap for icons */
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-secondary {
+             background-color: var(--btn-secondary-bg);
+             border: 1px solid var(--btn-secondary-border);
+             color: var(--text-color);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn svg {
+            width: 1em;
+            height: 1em;
+            fill: currentColor;
+        }
+        .year-nav .btn {
+            padding: 10px; /* Adjust padding for icon-only buttons */
+            line-height: 1;
+        }
+        .year-nav .btn svg {
+            width: 1.2em;
+            height: 1.2em;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Controls Panel */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        /* Main Schedule Area */
+        .schedule-area {
+            padding: 25px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .main-title {
+            display: none;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        
+        .month-container {
+            padding: 15px;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .month-container h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 1.4rem; /* Font size increased */
+            color: var(--primary-color);
+        }
+        .days-header, .dates-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            gap: 4px; 
+        }
+        .days-header div {
+            font-weight: bold;
+            font-size: 0.8rem; /* Font size increased */
+            padding: 5px 0;
+            color: var(--text-muted-color);
+        }
+        .days-header .sun { color: var(--sunday-color); }
+        
+        .date-cell {
+            font-size: 1.0rem;
+            cursor: pointer;
+            border-radius: 4px; 
+            transition: all 0.2s;
+            position: relative;
+            font-weight: 500;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            will-change: transform, border-color;
+            overflow: hidden; /* This is the "mask" */
+        }
+        .date-cell:not(.empty):hover {
+            transform: scale(1.05);
+            border-color: var(--primary-color);
+        }
+        
+        .date-cell-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: var(--cell-gradient);
+        }
+        .date-cell-number {
+            position: relative;
+            z-index: 2;
+        }
+        .holiday .date-cell-number {
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            font-weight: bold;
+        }
+        .sun .date-cell-number {
+            color: var(--sunday-color);
+            font-weight: bold;
+        }
+        .holiday.sun .date-cell-number {
+             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .date-cell.empty {
+            cursor: default;
+            background-color: transparent;
+            will-change: auto; /* Turn off optimization for empty cells */
+        }
+
+        /* Styles for per-month leave details */
+        .month-leave-details {
+            margin-top: auto;
+            padding-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px; 
+        }
+        
+        .leave-detail-item {
+            display: flex;
+            align-items: center;
+            gap: 8px; 
+            padding: 8px 12px;
+            background-color: var(--card-bg); 
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        .leave-driver-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            flex-shrink: 0;
+            font-size: 11px;
+        }
+        .driver-color-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color); 
+        }
+        
+        .leave-date-range {
+            flex-grow: 1;
+            color: var(--sunday-color);
+            font-weight: 500;
+            font-size: 11px;
+        }
+        .leave-date-range strong { color: var(--text-color); }
+
+        .leave-driver-info.edit-leave-trigger {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .leave-driver-info.edit-leave-trigger:hover {
+            opacity: 0.8;
+        }
+
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-content h2 { margin-bottom: 20px; }
+        .modal-content label { display: block; margin: 15px 0 5px; }
+        .modal-content input[type="text"], .modal-content input[type="date"], .modal-content select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 6px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .list-container {
+            list-style: none;
+            padding: 10px;
+            background-color: var(--bg-color);
+            border-radius: 6px;
+        }
+
+        #scheduled-drivers-list.list-container {
+             max-height: 200px;
+             overflow-y: auto;
+        }
+        #scheduled-drivers-list.list-container li {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .list-container li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+        }
+        .list-container li:last-child { border-bottom: none; }
+
+        #driver-list.list-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2-column grid */
+            gap: 10px 20px; /* Vertical and horizontal gap */
+            padding: 0; /* Remove padding to let grid gap handle spacing */
+            background-color: transparent; /* Remove background as it's just a container now */
+        }
+        #driver-list.list-container li {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-color);
+        }
+
+        .add-driver-container {
+            display: flex;
+            gap: 10px;
+        }
+        .add-driver-container select { flex-grow: 1; }
+
+        .driver-list-item-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            flex-grow: 1;
+        }
+        .driver-list-item-color-input {
+            visibility: hidden;
+            width: 0;
+            height: 0;
+            padding: 0;
+            border: none;
+        }
+        .driver-name-display {
+            cursor: pointer;
+        }
+        .driver-name-input {
+            padding: 2px 5px;
+            font-size: 1em;
+            background-color: var(--bg-color);
+            border: 1px solid var(--primary-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-left">
+                 <h1 id="main-header-title">HOLIDAY SCHEDULE</h1>
+                 <div class="platform-switcher">
+                     <button id="platform-switch-driver" class="btn">Driver</button>
+                     <button id="platform-switch-office" class="btn btn-secondary">Office</button>
+                 </div>
+            </div>
+            <nav class="year-nav">
+                <button class="btn btn-secondary" id="prev-year" aria-label="Previous Year">
+                    <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path></svg>
+                </button>
+                <span id="current-year-display">2025</span>
+                <button class="btn btn-secondary" id="next-year" aria-label="Next Year">
+                    <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"></path></svg>
+                </button>
+            </nav>
+            <div class="header-right">
+                <button id="theme-toggle" class="btn btn-secondary">Toggle Theme</button>
+            </div>
+        </header>
+
+        <div id="controls-panel" class="controls">
+            <button id="enable-editing-btn" class="btn">Enable Editing</button>
+            <button id="add-range-leave-btn-open" class="btn">Add Long-Term Leave</button>
+            <button id="manage-drivers-btn-open" class="btn btn-secondary">Members</button>
+            <button id="manage-holidays-btn-open" class="btn btn-secondary">Clear Holidays</button>
+            <button id="clear-all-schedule-btn" class="btn btn-secondary">Clear All Schedule</button>
+            <button id="export-pdf-btn" class="btn btn-secondary">Export as PDF</button>
+        </div>
+        <main id="schedule-to-export" class="schedule-area">
+            <h2 class="main-title"></h2>
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- Content generated by JS -->
+            </div>
+        </main>
+    </div>
+    
+    <div id="add-range-leave-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="range-modal-title">Add Long-Term Leave</h2>
+            <input type="hidden" id="original-start-date">
+            <input type="hidden" id="original-end-date">
+            <label for="range-driver-select">Select Member:</label>
+            <select id="range-driver-select"></select>
+            <label for="start-date-input">Start Date:</label>
+            <input type="date" id="start-date-input">
+            <label for="end-date-input">End Date:</label>
+            <input type="date" id="end-date-input">
+            <div class="modal-buttons">
+                <button id="apply-range-leave-btn" class="btn">Save</button>
+                <button class="btn btn-secondary" onclick="closeModal('add-range-leave-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="assign-holiday-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-date-title">Manage Holiday</h2>
+            <input type="hidden" id="selected-date">
+            <label>Scheduled Members:</label>
+            <ul id="scheduled-drivers-list" class="list-container"></ul>
+            <hr style="border-color: var(--border-color); margin: 25px 0;">
+            <label for="driver-select">Add Member:</label>
+            <div class="add-driver-container">
+                <select id="driver-select"></select>
+                <button id="assign-holiday-btn" class="btn">Add</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('assign-holiday-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="manage-drivers-modal" class="modal">
+        <div class="modal-content">
+            <h2>Manage Members</h2>
+            <label for="new-driver-name">New Member's Name:</label>
+            <input type="text" id="new-driver-name" placeholder="e.g. John Doe">
+            <button id="add-driver-btn" class="btn" style="width: 100%; margin-bottom: 20px;">Add Member</button>
+            <hr style="border-color: var(--border-color); margin: 20px 0;">
+            <h3>Current Member List</h3>
+            <ul id="driver-list" class="list-container"></ul>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('manage-drivers-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="manage-holidays-modal" class="modal">
+        <div class="modal-content">
+            <h2>Clear Member's Holidays</h2>
+            <p>Select a member to clear all their scheduled holidays.</p>
+            <label for="clear-driver-select">Member:</label>
+            <select id="clear-driver-select"></select>
+            <div class="modal-buttons">
+                <button id="clear-holidays-btn" class="btn" style="background-color: #c53030;">Clear This Member's Holidays</button>
+                <button class="btn btn-secondary" onclick="closeModal('manage-holidays-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- EDIT MODE & PASSWORD ---
+        const PASSWORD = '369'; 
+        let isEditMode = false;
+        // NEW: Centralized state management
+        const LOCAL_STORAGE_KEY = 'holidayScheduleData_v2'; // New key for the new data structure
+        let currentPlatform = 'Driver'; // 'Driver' or 'Office'
+        let allData = {}; // Will hold data for all platforms
+
+        function openModal(modalId) { 
+            const modal = document.getElementById(modalId);
+            if(modal) modal.classList.add('active'); 
+        }
+        function closeModal(modalId) { 
+            const modal = document.getElementById(modalId);
+            if(modal) modal.classList.remove('active');
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            let currentYear = 2025;
+            
+            // --- PLATFORM-SPECIFIC DEFAULT DATA ---
+            const getDefaultDataForPlatform = (platform) => {
+                if (platform === 'Driver') {
+                    const defaultDrivers = [
+                        { name: 'Minh', color: '#8E44AD' },
+                        { name: 'Tam', color: '#E91E63' },
+                        { name: 'Trang', color: '#F1C40F' },
+                        { name: 'Roger', color: '#3498DB' },
+                        { name: 'Hung', color: '#2ECC71' },
+                        { name: 'TRANG - RUN 16', color: '#90be6d'}
+                    ];
+                    const defaultHolidays = {};
+                    // Function to populate default holidays for demonstration
+                    const addRange = (driver, startStr, endStr, holidayObj) => {
+                        const startDate = new Date(startStr + 'T00:00:00');
+                        const endDate = new Date(endStr + 'T00:00:00');
+                        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                            const yyyy = d.getFullYear();
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const dd = String(d.getDate()).padStart(2, '0');
+                            const formattedDate = `${yyyy}-${mm}-${dd}`;
+                            if (!holidayObj[formattedDate]) holidayObj[formattedDate] = [];
+                            if (!holidayObj[formattedDate].includes(driver)) {
+                                holidayObj[formattedDate].push(driver);
+                            }
+                        }
+                    };
+                    addRange('Minh', '2025-06-30', '2025-07-20', defaultHolidays);
+                    addRange('Tam', '2025-07-21', '2025-08-03', defaultHolidays);
+                    addRange('Trang', '2025-08-04', '2025-08-31', defaultHolidays);
+                    addRange('TRANG - RUN 16', '2025-08-31', '2025-10-11', defaultHolidays);
+                    return { drivers: defaultDrivers, holidays: defaultHolidays };
+                }
+                if (platform === 'Office') {
+                     const defaultOfficeDrivers = [
+                        { name: 'Anh', color: '#f3722c' },
+                        { name: 'Chi', color: '#f8961e' },
+                        { name: 'Bao', color: '#f9c74f' },
+                        { name: 'Khanh', color: '#43aa8b' },
+                        { name: 'Linh', color: '#577590' },
+                    ];
+                    return { drivers: defaultOfficeDrivers, holidays: {} };
+                }
+                return { drivers: [], holidays: {} };
+            };
+
+            // --- DATA PERSISTENCE & AUTO-SAVE FUNCTIONS ---
+            function saveData() {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allData));
+            }
+
+            function loadData() {
+                const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                let loaded = false;
+                if (savedData) {
+                    try {
+                        const parsedData = JSON.parse(savedData);
+                        // Basic validation
+                        if (parsedData && typeof parsedData === 'object') {
+                            allData = parsedData;
+                            loaded = true;
+                            console.log('Data loaded from localStorage.');
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse saved data.", e);
+                    }
+                }
+                
+                // Ensure both platforms have data, using defaults if necessary
+                if (!allData.Driver) {
+                    allData.Driver = getDefaultDataForPlatform('Driver');
+                }
+                if (!allData.Office) {
+                    allData.Office = getDefaultDataForPlatform('Office');
+                }
+
+                if (!loaded) {
+                     console.log('No valid saved data found, using default data for all platforms.');
+                }
+            }
+            
+            // --- NEW: Platform Switching Logic ---
+            function switchPlatform(newPlatform) {
+                if (newPlatform === currentPlatform) return;
+                currentPlatform = newPlatform;
+
+                // Update UI for switcher buttons
+                const driverBtn = document.getElementById('platform-switch-driver');
+                const officeBtn = document.getElementById('platform-switch-office');
+                driverBtn.classList.toggle('btn-secondary', currentPlatform !== 'Driver');
+                officeBtn.classList.toggle('btn-secondary', currentPlatform !== 'Office');
+                driverBtn.classList.toggle('btn', currentPlatform === 'Driver');
+                officeBtn.classList.toggle('btn', currentPlatform === 'Office');
+
+                // Update main title
+                document.getElementById('main-header-title').textContent = `HOLIDAY SCHEDULE - ${currentPlatform.toUpperCase()}`;
+
+                // Re-render the entire application for the new context
+                renderApp();
+            }
+
+            // --- UI CONTROL FOR EDIT MODE ---
+            function toggleEditControls(enable) {
+                const editButtons = [
+                    'add-range-leave-btn-open',
+                    'manage-drivers-btn-open',
+                    'manage-holidays-btn-open',
+                    'clear-all-schedule-btn'
+                ];
+                
+                editButtons.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if (btn) btn.disabled = !enable;
+                });
+
+                const enableEditingBtn = document.getElementById('enable-editing-btn');
+                if (enable) {
+                    enableEditingBtn.textContent = 'Disable Editing';
+                    enableEditingBtn.style.backgroundColor = 'var(--sunday-color)';
+                    enableEditingBtn.style.borderColor = 'var(--sunday-color)';
+                } else {
+                    enableEditingBtn.textContent = 'Enable Editing';
+                    enableEditingBtn.style.backgroundColor = 'var(--primary-color)';
+                    enableEditingBtn.style.borderColor = 'var(--primary-color)';
+                }
+            }
+            
+            // --- Core Application Logic (Now aware of currentPlatform) ---
+            const addHolidayRange = (driver, startStr, endStr) => {
+                const holidays = allData[currentPlatform].holidays;
+                const startDate = new Date(startStr + 'T00:00:00');
+                const endDate = new Date(endStr + 'T00:00:00');
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const formattedDate = `${yyyy}-${mm}-${dd}`;
+                    if (!holidays[formattedDate]) holidays[formattedDate] = [];
+                    if (!holidays[formattedDate].includes(driver)) {
+                        holidays[formattedDate].push(driver);
+                    }
+                }
+            };
+
+            const calendarGrid = document.getElementById('calendar-grid');
+            const yearDisplay = document.getElementById('current-year-display');
+
+            function renderApp() {
+                yearDisplay.textContent = currentYear;
+                const allLeaveRanges = groupHolidaysIntoRanges();
+                renderAllCalendars(allLeaveRanges);
+            }
+            
+            function renderAllCalendars(allLeaveRanges) {
+                const monthRenderData = [];
+                for (let m = 0; m < 12; m++) {
+                    const daysInMonth = new Date(currentYear, m + 1, 0).getDate();
+                    const main_days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                    monthRenderData.push({ pre_days: [], main_days: main_days });
+                }
+
+                const SPILL_THRESHOLD = 2; 
+                for (let m = 0; m < 11; m++) { 
+                    const firstDay = new Date(currentYear, m, 1);
+                    let dayOfWeek = firstDay.getDay();
+                    if (dayOfWeek === 0) dayOfWeek = 7; 
+                    const startingDayOffset = dayOfWeek - 1; 
+
+                    const totalGridSlotsUsed = startingDayOffset + monthRenderData[m].main_days.length;
+                    const daysInLastRow = totalGridSlotsUsed % 7;
+
+                    if (daysInLastRow > 0 && daysInLastRow <= SPILL_THRESHOLD) {
+                        const daysToSpill = monthRenderData[m].main_days.splice(-daysInLastRow);
+                        monthRenderData[m + 1].pre_days = daysToSpill.map(day => ({ day: day, month: m }));
+                    }
+                }
+
+                calendarGrid.innerHTML = '';
+                for (let month = 0; month < 12; month++) {
+                    const monthWrapper = document.createElement('div');
+                    monthWrapper.className = 'month-container';
+                    
+                    const monthName = new Date(currentYear, month).toLocaleString('en-US', { month: 'long' });
+                    const monthNumber = (month + 1).toString().padStart(2, '0');
+                    
+                    monthWrapper.innerHTML = `
+                        <h3>${monthName.toUpperCase()} - ${monthNumber}</h3>
+                        <div class="days-header">
+                            <div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div><div class="sun">SUN</div>
+                        </div>
+                        <div class="dates-grid" id="month-${month}"></div>
+                        <div class="month-leave-details" id="month-leave-details-${month}"></div>
+                    `;
+                    calendarGrid.appendChild(monthWrapper);
+
+                    renderDatesForMonth(month, monthRenderData);
+                    renderLeaveDetailsForMonth(month, allLeaveRanges);
+                }
+            }
+            
+            function renderLeaveDetailsForMonth(month, allLeaveRanges) {
+                const detailsContainer = document.getElementById(`month-leave-details-${month}`);
+                if (!detailsContainer) return;
+
+                const monthStart = new Date(currentYear, month, 1);
+                const monthEnd = new Date(currentYear, month + 1, 0);
+
+                const relevantRanges = allLeaveRanges.filter(range => {
+                    const rangeStart = new Date(range.start + 'T00:00:00');
+                    const rangeEnd = new Date(range.end + 'T00:00:00');
+                    return rangeStart <= monthEnd && rangeEnd >= monthStart;
+                });
+
+                detailsContainer.innerHTML = '';
+                if (relevantRanges.length > 0) {
+                    const drivers = allData[currentPlatform].drivers;
+                    relevantRanges.forEach(range => {
+                        const driver = drivers.find(d => d.name === range.driver);
+                        if (!driver) return;
+                        
+                        const workdays = calculateWorkdays(range.start, range.end);
+                        
+                        const startDateObj = new Date(range.start + 'T00:00:00');
+                        const endDateObj = new Date(range.end + 'T00:00:00');
+                        const formatDdMm = (date) => `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                        const formattedStart = formatDdMm(startDateObj);
+                        const formattedEnd = formatDdMm(endDateObj);
+
+                        const item = document.createElement('div');
+                        item.className = 'leave-detail-item';
+                        item.innerHTML = `
+                            <div class="leave-driver-info edit-leave-trigger" data-driver="${range.driver}" data-start="${range.start}" data-end="${range.end}">
+                                <div class="driver-color-swatch" style="background-color: ${driver.color};"></div>
+                                <span>${driver.name}:</span>
+                            </div>
+                            <div class="leave-date-range">
+                                <span style="color: var(--text-color)">(</span>${formattedStart}<span style="color: var(--primary-color)"> - </span>${formattedEnd}, <span style="color: var(--primary-color); font-weight: bold;">${workdays} days</span><span style="color: var(--text-color)">)</span>
+                            </div>
+                        `;
+                        detailsContainer.appendChild(item);
+                    });
+                }
+            }
+            
+            function renderDatesForMonth(month, monthRenderData) {
+                const datesGrid = document.getElementById(`month-${month}`);
+                datesGrid.innerHTML = '';
+                const data = monthRenderData[month];
+                const holidays = allData[currentPlatform].holidays;
+                const drivers = allData[currentPlatform].drivers;
+                
+                const createCell = (day, cellMonth) => {
+                    const dateCell = document.createElement('div');
+                    dateCell.className = 'date-cell';
+                    
+                    const dateNumber = document.createElement('span');
+                    dateNumber.className = 'date-cell-number';
+                    dateNumber.textContent = day;
+                    dateCell.appendChild(dateNumber);
+
+                    const fullDate = `${currentYear}-${(cellMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                    dateCell.dataset.date = fullDate;
+
+                    if (new Date(currentYear, cellMonth, day).getDay() === 0) {
+                        dateCell.classList.add('sun');
+                    }
+                    
+                    const holidayDrivers = holidays[fullDate] || [];
+                    if (holidayDrivers.length > 0) {
+                        dateCell.classList.add('holiday');
+                        const colors = holidayDrivers.map(name => drivers.find(d => d.name === name)?.color).filter(Boolean);
+                        
+                        const bgDiv = document.createElement('div');
+                        bgDiv.className = 'date-cell-bg';
+
+                        if (colors.length === 1) {
+                            bgDiv.style.background = colors[0];
+                        } else if (colors.length > 1) {
+                            const gradientStops = colors.map((color, index) => {
+                                const start = (100 / colors.length) * index;
+                                const end = (100 / colors.length) * (index + 1);
+                                return `${color} ${start}% ${end}%`;
+                            }).join(', ');
+                            bgDiv.style.background = `linear-gradient(to bottom, ${gradientStops})`;
+                        }
+                        dateCell.prepend(bgDiv);
+                    }
+                    return dateCell;
+                };
+
+                data.pre_days.forEach(spill => {
+                    datesGrid.appendChild(createCell(spill.day, spill.month));
+                });
+                
+                const firstDayOfMonth = new Date(currentYear, month, 1);
+                let dayOfWeek = firstDayOfMonth.getDay();
+                if (dayOfWeek === 0) dayOfWeek = 7;
+                const startingDayOffset = dayOfWeek - 1;
+                
+                const blankCellCount = startingDayOffset - data.pre_days.length;
+                for (let i = 0; i < blankCellCount; i++) {
+                    datesGrid.appendChild(document.createElement('div')).className = 'date-cell empty';
+                }
+                
+                data.main_days.forEach(day => {
+                    datesGrid.appendChild(createCell(day, month));
+                });
+            }
+            
+            function groupHolidaysIntoRanges() {
+                const drivers = allData[currentPlatform].drivers;
+                const holidays = allData[currentPlatform].holidays;
+                const driverHolidayDates = {};
+                drivers.forEach(d => driverHolidayDates[d.name] = []);
+                Object.entries(holidays).forEach(([date, driverNames]) => {
+                    driverNames.forEach(name => {
+                        if (driverHolidayDates[name]) driverHolidayDates[name].push(date);
+                    });
+                });
+                const ranges = [];
+                for (const driverName in driverHolidayDates) {
+                    const dates = driverHolidayDates[driverName].sort();
+                    if (dates.length === 0) continue;
+                    let rangeStart = dates[0];
+                    for (let i = 1; i <= dates.length; i++) {
+                        const prevDate = new Date(dates[i-1] + 'T00:00:00');
+                        const currentDate = i < dates.length ? new Date(dates[i] + 'T00:00:00') : null;
+                        const isEndOfRange = currentDate === null || (currentDate.getTime() - prevDate.getTime()) > (1000 * 60 * 60 * 24);
+                        if (isEndOfRange) {
+                            ranges.push({ driver: driverName, start: rangeStart, end: dates[i-1] });
+                            if (currentDate) rangeStart = dates[i];
+                        }
+                    }
+                }
+                
+                return ranges.sort((a, b) => {
+                    const aIsRunEntry = a.driver.toUpperCase().includes('RUN');
+                    const bIsRunEntry = b.driver.toUpperCase().includes('RUN');
+                    if (aIsRunEntry && !bIsRunEntry) return 1;
+                    if (!aIsRunEntry && bIsRunEntry) return -1;
+                    return new Date(a.start) - new Date(b.start);
+                });
+            };
+
+            const calculateWorkdays = (startStr, endStr) => {
+                let count = 0;
+                let currentDate = new Date(startStr + 'T00:00:00');
+                const endDate = new Date(endStr + 'T00:00:00');
+                while(currentDate <= endDate) {
+                    const day = currentDate.getDay();
+                    if (day !== 0) count++;
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                return count;
+            };
+
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) closeModal(modal.id); }));
+            
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    const activeModal = document.querySelector('.modal.active');
+                    if (activeModal) closeModal(activeModal.id);
+                }
+            });
+
+            function populateDriverSelect(selectElement, driverList, placeholder = "Select a member") {
+                selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+                driverList.forEach(driver => {
+                    const option = document.createElement('option');
+                    option.value = driver.name;
+                    option.textContent = driver.name;
+                    selectElement.appendChild(option);
+                });
+            }
+
+            // --- GATED EVENT LISTENERS ---
+            calendarGrid.addEventListener('click', (e) => {
+                if (!isEditMode) return;
+                
+                const editTrigger = e.target.closest('.edit-leave-trigger');
+                if (editTrigger) {
+                    const { driver, start, end } = editTrigger.dataset;
+                    const modal = document.getElementById('add-range-leave-modal');
+                    modal.querySelector('#range-modal-title').textContent = `Edit Leave for ${driver}`;
+                    const driverSelect = modal.querySelector('#range-driver-select');
+                    populateDriverSelect(driverSelect, allData[currentPlatform].drivers);
+                    driverSelect.value = driver;
+                    driverSelect.disabled = true; 
+                    modal.querySelector('#start-date-input').value = start;
+                    modal.querySelector('#end-date-input').value = end;
+                    modal.querySelector('#original-start-date').value = start;
+                    modal.querySelector('#original-end-date').value = end;
+                    openModal('add-range-leave-modal');
+                    return; 
+                }
+
+                const cell = e.target.closest('.date-cell');
+                if (cell && !cell.classList.contains('empty')) {
+                    openAssignHolidayModal(cell.dataset.date);
+                }
+            });
+            
+            document.getElementById('platform-switch-driver').addEventListener('click', () => switchPlatform('Driver'));
+            document.getElementById('platform-switch-office').addEventListener('click', () => switchPlatform('Office'));
+
+            document.getElementById('prev-year').addEventListener('click', () => { currentYear--; renderApp(); });
+            document.getElementById('next-year').addEventListener('click', () => { currentYear++; renderApp(); });
+            document.getElementById('theme-toggle').addEventListener('click', () => document.body.classList.toggle('light-mode'));
+            
+            document.getElementById('enable-editing-btn').addEventListener('click', () => {
+                if (isEditMode) {
+                    isEditMode = false;
+                    toggleEditControls(false);
+                } else {
+                    const enteredPassword = prompt('Please enter the password to enable editing:');
+                    if (enteredPassword === PASSWORD) {
+                        isEditMode = true;
+                        toggleEditControls(true);
+                    } else if (enteredPassword !== null) {
+                        alert('Incorrect password.');
+                    }
+                }
+            });
+            
+            document.getElementById('add-range-leave-btn-open').addEventListener('click', () => {
+                if (!isEditMode) return;
+                const modal = document.getElementById('add-range-leave-modal');
+                modal.querySelector('#range-modal-title').textContent = 'Add Long-Term Leave';
+                const driverSelect = modal.querySelector('#range-driver-select');
+                populateDriverSelect(driverSelect, allData[currentPlatform].drivers);
+                driverSelect.disabled = false;
+                modal.querySelectorAll('input, select').forEach(el => el.value = '');
+                openModal('add-range-leave-modal');
+            });
+            document.getElementById('manage-drivers-btn-open').addEventListener('click', () => {
+                if (!isEditMode) return;
+                renderDriverList();
+                openModal('manage-drivers-modal');
+            });
+            document.getElementById('manage-holidays-btn-open').addEventListener('click', () => {
+                if (!isEditMode) return;
+                populateDriverSelect(document.getElementById('clear-driver-select'), allData[currentPlatform].drivers, "Select member to clear");
+                openModal('manage-holidays-modal');
+            });
+            
+            document.getElementById('clear-all-schedule-btn').addEventListener('click', () => {
+                if (!isEditMode) return;
+                if (confirm(`Are you absolutely sure you want to clear ALL holidays for ALL members in the ${currentPlatform} department? This action cannot be undone.`)) {
+                    allData[currentPlatform].holidays = {};
+                    renderApp();
+                    saveData();
+                }
+            });
+
+            document.getElementById('export-pdf-btn').addEventListener('click', () => {
+                const { jsPDF } = window.jspdf;
+                const element = document.getElementById('schedule-to-export');
+                const mainTitle = element.querySelector('.main-title');
+                mainTitle.textContent = `Holiday Schedule ${currentYear} - ${currentPlatform.toUpperCase()}`;
+                mainTitle.style.display = 'block';
+
+                html2canvas(element, { scale: 3, backgroundColor: null }).then(canvas => {
+                    mainTitle.style.display = 'none'; // Hide it again after capture
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = canvas.width;
+                    const imgHeight = canvas.height;
+                    const pdf = new jsPDF({
+                        orientation: imgWidth > imgHeight ? 'l' : 'p',
+                        unit: 'px',
+                        format: [imgWidth, imgHeight]
+                    });
+                    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                    pdf.save(`holiday-schedule-${currentPlatform}-${currentYear}.pdf`);
+                });
+            });
+
+            document.getElementById('apply-range-leave-btn').addEventListener('click', () => {
+                if (!isEditMode) return;
+                const modal = document.getElementById('add-range-leave-modal');
+                const driver = modal.querySelector('#range-driver-select').value;
+                const start = modal.querySelector('#start-date-input').value;
+                const end = modal.querySelector('#end-date-input').value;
+                const originalStart = modal.querySelector('#original-start-date').value;
+                const originalEnd = modal.querySelector('#original-end-date').value;
+
+                if (!driver || !start || !end) { alert("Please fill all fields."); return; }
+                if (new Date(start) > new Date(end)) { alert("Start date cannot be after end date."); return; }
+                
+                const holidays = allData[currentPlatform].holidays;
+                if (originalStart && originalEnd) {
+                    const startDate = new Date(originalStart + 'T00:00:00');
+                    const endDate = new Date(originalEnd + 'T00:00:00');
+                    for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
+                        const yyyy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const dateStr = `${yyyy}-${mm}-${dd}`;
+                        if (holidays[dateStr]) {
+                            holidays[dateStr] = holidays[dateStr].filter(dName => dName !== driver);
+                            if (holidays[dateStr].length === 0) delete holidays[dateStr];
+                        }
+                    }
+                }
+                
+                addHolidayRange(driver, start, end);
+                renderApp();
+                saveData();
+                closeModal('add-range-leave-modal');
+            });
+
+             function openAssignHolidayModal(date) {
+                const holidays = allData[currentPlatform].holidays;
+                const drivers = allData[currentPlatform].drivers;
+                document.getElementById('selected-date').value = date;
+                document.getElementById('modal-date-title').textContent = `Manage Holiday for ${new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+                populateDriverSelect(document.getElementById('driver-select'), drivers.filter(d => !(holidays[date] || []).includes(d.name)));
+                renderScheduledDrivers(date);
+                openModal('assign-holiday-modal');
+            }
+
+            function renderScheduledDrivers(date) {
+                const list = document.getElementById('scheduled-drivers-list');
+                list.innerHTML = '';
+                const scheduled = allData[currentPlatform].holidays[date] || [];
+                const drivers = allData[currentPlatform].drivers;
+                if(scheduled.length === 0) {
+                    list.innerHTML = '<li>No members scheduled for this day.</li>';
+                    return;
+                }
+                scheduled.forEach(driverName => {
+                    const driver = drivers.find(d => d.name === driverName);
+                    if(!driver) return;
+                    const item = document.createElement('li');
+                    item.innerHTML = `<span style="display: flex; align-items: center; gap: 8px;"><div class="driver-color-swatch" style="background-color: ${driver.color};"></div>${driver.name}</span> <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.8em;" data-driver="${driver.name}">Remove</button>`;
+                    item.querySelector('button').addEventListener('click', () => removeDriverFromHoliday(date, driver.name));
+                    list.appendChild(item);
+                });
+            }
+
+            function removeDriverFromHoliday(date, driverName) {
+                if (!isEditMode) return;
+                const holidays = allData[currentPlatform].holidays;
+                if (holidays[date]) {
+                    holidays[date] = holidays[date].filter(d => d !== driverName);
+                    if (holidays[date].length === 0) delete holidays[date];
+                }
+                renderApp();
+                saveData();
+                openAssignHolidayModal(date);
+            }
+
+            document.getElementById('assign-holiday-btn').addEventListener('click', () => {
+                if (!isEditMode) return;
+                const date = document.getElementById('selected-date').value;
+                const driverName = document.getElementById('driver-select').value;
+                const holidays = allData[currentPlatform].holidays;
+                if (!driverName) return;
+                if (!holidays[date]) holidays[date] = [];
+                if (!holidays[date].includes(driverName)) {
+                    holidays[date].push(driverName);
+                }
+                renderApp();
+                saveData();
+                openAssignHolidayModal(date);
+            });
+
+            const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            document.getElementById('add-driver-btn').addEventListener('click', () => {
+                if (!isEditMode) return;
+                const nameInput = document.getElementById('new-driver-name');
+                const drivers = allData[currentPlatform].drivers;
+                if (nameInput.value.trim() && !drivers.find(d => d.name === nameInput.value.trim())) {
+                    drivers.push({ name: nameInput.value.trim(), color: randomColor() });
+                    nameInput.value = '';
+                    renderDriverList();
+                    saveData();
+                } else {
+                    alert('Member name cannot be empty or already exist.');
+                }
+            });
+            
+            function renderDriverList() {
+                const list = document.getElementById('driver-list');
+                const drivers = allData[currentPlatform].drivers;
+                list.innerHTML = ''; 
+                drivers.forEach(driver => {
+                    const item = document.createElement('li');
+                    const inputId = `driver-color-${driver.name.replace(/\s+/g, '-')}`;
+
+                    item.innerHTML = `
+                        <label for="${inputId}" class="driver-list-item-label">
+                            <div class="driver-color-swatch" style="background-color: ${driver.color};"></div>
+                            <span class="driver-name-display" data-driver-name="${driver.name}">${driver.name}</span>
+                        </label>
+                        <input type="color" id="${inputId}" value="${driver.color}" data-driver-name="${driver.name}" class="driver-list-item-color-input">
+                        <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.8em;" data-driver-remove="${driver.name}">Remove</button>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+
+            const driverListContainer = document.getElementById('driver-list');
+            driverListContainer.addEventListener('input', (e) => {
+                if (!isEditMode) return;
+                if (e.target.matches('.driver-list-item-color-input')) {
+                    const driverName = e.target.dataset.driverName;
+                    const newColor = e.target.value;
+                    const driverToUpdate = allData[currentPlatform].drivers.find(d => d.name === driverName);
+                    if (driverToUpdate) {
+                        driverToUpdate.color = newColor;
+                        renderApp();
+                        renderDriverList();
+                        saveData();
+                    }
+                }
+            });
+
+            driverListContainer.addEventListener('click', (e) => {
+                if (!isEditMode) return;
+                const removeButton = e.target.closest('button[data-driver-remove]');
+                if (removeButton) {
+                    const driverName = removeButton.dataset.driverRemove;
+                    if (confirm(`Are you sure you want to remove ${driverName}? This will also remove all their holidays.`)) {
+                        removeDriver(driverName);
+                    }
+                    return;
+                }
+
+                const nameSpan = e.target.closest('.driver-name-display');
+                if (nameSpan && !driverListContainer.querySelector('.driver-name-input')) {
+                    const originalName = nameSpan.dataset.driverName;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'driver-name-input';
+                    input.value = originalName;
+                    input.dataset.originalName = originalName;
+                    input.addEventListener('blur', () => saveDriverName(input));
+                    input.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter') input.blur();
+                        else if (event.key === 'Escape') renderDriverList();
+                    });
+                    nameSpan.replaceWith(input);
+                    input.focus();
+                    input.select();
+                }
+            });
+
+            function saveDriverName(inputElement) {
+                if (!isEditMode) return;
+                const originalName = inputElement.dataset.originalName;
+                const newName = inputElement.value.trim();
+                const drivers = allData[currentPlatform].drivers;
+                const holidays = allData[currentPlatform].holidays;
+                if (!newName || newName === originalName) { renderDriverList(); return; }
+                if (drivers.some(d => d.name === newName)) { alert(`Member name "${newName}" already exists.`); renderDriverList(); return; }
+                const driverToUpdate = drivers.find(d => d.name === originalName);
+                if (driverToUpdate) driverToUpdate.name = newName;
+                Object.keys(holidays).forEach(date => {
+                    const index = holidays[date].indexOf(originalName);
+                    if (index > -1) holidays[date][index] = newName;
+                });
+                renderDriverList();
+                renderApp();
+                saveData();
+            }
+
+            function removeDriver(driverName) {
+                if (!isEditMode) return;
+                allData[currentPlatform].drivers = allData[currentPlatform].drivers.filter(d => d.name !== driverName);
+                const holidays = allData[currentPlatform].holidays;
+                for (const date in holidays) {
+                    holidays[date] = holidays[date].filter(d => d !== driverName);
+                    if (holidays[date].length === 0) delete holidays[date];
+                }
+                renderDriverList(); 
+                renderApp();
+                saveData();
+            }
+
+            document.getElementById('clear-holidays-btn').addEventListener('click', () => {
+                if (!isEditMode) return;
+                const driverToClear = document.getElementById('clear-driver-select').value;
+                if (!driverToClear) { alert("Please select a member."); return; }
+                if (confirm(`Are you sure you want to clear ALL holidays for ${driverToClear}? This cannot be undone.`)) {
+                    const holidays = allData[currentPlatform].holidays;
+                    for (const date in holidays) {
+                        holidays[date] = holidays[date].filter(d => d !== driverToClear);
+                        if (holidays[date].length === 0) delete holidays[date];
+                    }
+                    renderApp();
+                    saveData();
+                    closeModal('manage-holidays-modal');
+                }
+            });
+
+            // --- INITIALIZE APP ---
+            loadData();
+            switchPlatform('Driver'); // Start with the Driver platform
+            toggleEditControls(false); // Start in view-only mode
+        });
+    </script>
+
+</body>
+</html>
